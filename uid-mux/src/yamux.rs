@@ -55,6 +55,7 @@ pub struct Yamux<Io> {
 }
 
 #[derive(Debug)]
+#[derive(Default)]
 struct Queue {
     waiting: HashMap<InternalId, oneshot::Sender<Stream>>,
     ready: HashMap<InternalId, Stream>,
@@ -62,16 +63,6 @@ struct Queue {
     waker: Option<Waker>,
 }
 
-impl Default for Queue {
-    fn default() -> Self {
-        Self {
-            waiting: Default::default(),
-            ready: Default::default(),
-            alloc: 0,
-            waker: None,
-        }
-    }
-}
 
 impl<Io> Yamux<Io> {
     /// Returns a new control handle.
@@ -368,7 +359,7 @@ impl YamuxCtrl {
 
         let mut queue = self.queue.lock().unwrap();
         queue.alloc += count;
-        queue.waker.as_ref().map(|waker| waker.wake_by_ref());
+        if let Some(waker) = queue.waker.as_ref() { waker.wake_by_ref() }
     }
 
     /// Closes the yamux connection.
@@ -376,12 +367,11 @@ impl YamuxCtrl {
         self.shutdown_notify.store(true, Ordering::Relaxed);
 
         // Wake up the connection.
-        self.queue
+        if let Some(waker) = self.queue
             .lock()
             .unwrap()
             .waker
-            .as_ref()
-            .map(|waker| waker.wake_by_ref());
+            .as_ref() { waker.wake_by_ref() }
     }
 }
 
@@ -418,7 +408,7 @@ where
             // Insert the oneshot into the queue.
             queue.waiting.insert(internal_id, sender);
             // Wake up the connection.
-            queue.waker.as_ref().map(|waker| waker.wake_by_ref());
+            if let Some(waker) = queue.waker.as_ref() { waker.wake_by_ref() }
 
             trace!("waiting for stream");
 
@@ -431,7 +421,7 @@ where
                     .inspect(|_| debug!("caller received stream"))
                     .inspect_err(|_| error!("connection cancelled stream"))
                     .map_err(|_| {
-                    std::io::Error::other(format!("connection cancelled stream"))
+                    std::io::Error::other("connection cancelled stream".to_string())
                 }),
             _ = self.close_notify.notified().fuse() => {
                 error!("connection closed before stream opened");
