@@ -107,11 +107,11 @@ impl std::fmt::Display for NestedId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NestedId::String { id, root } => match root {
-                Some(root) => write!(f, "{}/{}", root.to_string(), id),
+                Some(root) => write!(f, "{}/{}", root, id),
                 None => write!(f, "{}", id),
             },
             NestedId::Counter { value, root } => match root {
-                Some(root) => write!(f, "{}/{}", root.to_string(), value),
+                Some(root) => write!(f, "{}/{}", root, value),
                 None => write!(f, "{}", value),
             },
         }

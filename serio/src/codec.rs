@@ -60,7 +60,7 @@ mod bincode_impl {
         type Error = bincode::Error;
 
         fn deserialize<T: Deserialize>(&mut self, buf: &BytesMut) -> Result<T, Self::Error> {
-            Ok(deserialize(buf)?)
+            deserialize(buf)
         }
     }
 
