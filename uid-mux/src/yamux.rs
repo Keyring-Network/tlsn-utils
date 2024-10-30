@@ -54,15 +54,13 @@ pub struct Yamux<Io> {
     shutdown_notify: Arc<AtomicBool>,
 }
 
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Queue {
     waiting: HashMap<InternalId, oneshot::Sender<Stream>>,
     ready: HashMap<InternalId, Stream>,
     alloc: usize,
     waker: Option<Waker>,
 }
-
 
 impl<Io> Yamux<Io> {
     /// Returns a new control handle.
@@ -359,7 +357,9 @@ impl YamuxCtrl {
 
         let mut queue = self.queue.lock().unwrap();
         queue.alloc += count;
-        if let Some(waker) = queue.waker.as_ref() { waker.wake_by_ref() }
+        if let Some(waker) = queue.waker.as_ref() {
+            waker.wake_by_ref()
+        }
     }
 
     /// Closes the yamux connection.
@@ -367,11 +367,9 @@ impl YamuxCtrl {
         self.shutdown_notify.store(true, Ordering::Relaxed);
 
         // Wake up the connection.
-        if let Some(waker) = self.queue
-            .lock()
-            .unwrap()
-            .waker
-            .as_ref() { waker.wake_by_ref() }
+        if let Some(waker) = self.queue.lock().unwrap().waker.as_ref() {
+            waker.wake_by_ref()
+        }
     }
 }
 
@@ -408,7 +406,9 @@ where
             // Insert the oneshot into the queue.
             queue.waiting.insert(internal_id, sender);
             // Wake up the connection.
-            if let Some(waker) = queue.waker.as_ref() { waker.wake_by_ref() }
+            if let Some(waker) = queue.waker.as_ref() {
+                waker.wake_by_ref()
+            }
 
             trace!("waiting for stream");
 

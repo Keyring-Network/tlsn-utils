@@ -44,9 +44,11 @@ impl Iterator for Requests {
         if self.pos >= self.src.len() {
             None
         } else {
-            Some(parse_request_from_bytes(&self.src, self.pos).inspect(|req| {
-                self.pos += req.span.len();
-            }))
+            Some(
+                parse_request_from_bytes(&self.src, self.pos).inspect(|req| {
+                    self.pos += req.span.len();
+                }),
+            )
         }
     }
 }
@@ -81,9 +83,11 @@ impl Iterator for Responses {
         if self.pos >= self.src.len() {
             None
         } else {
-            Some(parse_response_from_bytes(&self.src, self.pos).inspect(|resp| {
-                self.pos += resp.span.len();
-            }))
+            Some(
+                parse_response_from_bytes(&self.src, self.pos).inspect(|resp| {
+                    self.pos += resp.span.len();
+                }),
+            )
         }
     }
 }
