@@ -178,11 +178,14 @@ pub(crate) fn parse_response_from_bytes(
             b"identity" => (parse_identity_body(&src.slice(head_end..))?, src.len()),
             _ => return Err(ParseError("Unsupported Transfer-Encoding".to_string())),
         };
-        let body_span = Span::new_bytes(body_bytes.clone(), 0..body_bytes.len());
-        response.body = Some(Body {
-            span: Span::new_bytes(src.clone(), head_end..end_pos),
-            content: BodyContent::Unknown(body_span),
-        });
+
+        let content_type = response
+            .headers_with_name("Content-Type")
+            .next()
+            .map(|header| header.value.as_bytes())
+            .unwrap_or_default();
+
+        response.body = Some(parse_body(&body_bytes, 0..body_bytes.len(), content_type)?);
         response.span = Span::new_bytes(src.clone(), offset..end_pos);
     } else if body_len > 0 {
         let range = head_end..head_end + body_len;
