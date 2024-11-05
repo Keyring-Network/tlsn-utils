@@ -97,7 +97,7 @@ pub(crate) fn parse_request_from_bytes(src: &Bytes, offset: usize) -> Result<Req
             .map(|header| header.value.as_bytes())
             .unwrap_or_default();
 
-        request.body = Some(parse_body(src, range.clone(), content_type)?);
+        request.body = Some(parse_body(src, RangeSet::from(vec![range.clone()]), content_type)?);
         request.span = Span::new_bytes(src.clone(), offset..range.end);
     }
 
@@ -173,9 +173,9 @@ pub(crate) fn parse_response_from_bytes(
     if body_len == usize::MAX {
         // Handle different transfer encodings
         let transfer_encoding = response.headers_with_name("Transfer-Encoding").next().unwrap().value.as_bytes();
-        let (body_bytes, ranges) = match transfer_encoding {
+        let (body_bytes, ranges, end_pos) = match transfer_encoding {
             b"chunked" => parse_chunked_body(src, head_end)?,
-            b"identity" => (src.slice(head_end..), RangeSet::from(vec![head_end..src.len()])),
+            b"identity" => (src.slice(head_end..), RangeSet::from(vec![head_end..src.len()]), src.len()),
             _ => return Err(ParseError("Unsupported Transfer-Encoding".to_string())),
         };
 
@@ -185,10 +185,10 @@ pub(crate) fn parse_response_from_bytes(
             .map(|header| header.value.as_bytes())
             .unwrap_or_default();
 
-        response.body = Some(parse_body(&body_bytes, 0..body_bytes.len(), content_type)?);
+        response.body = Some(parse_body(&body_bytes, ranges.clone(), content_type)?);
         response.span = Span {
             data: src.clone(),
-            indices: ranges,
+            indices: RangeSet::from(vec![head_end..end_pos]),
             _pd: std::marker::PhantomData,
         };
     } else if body_len > 0 {
@@ -209,7 +209,7 @@ pub(crate) fn parse_response_from_bytes(
             .map(|header| header.value.as_bytes())
             .unwrap_or_default();
 
-        response.body = Some(parse_body(src, range.clone(), content_type)?);
+        response.body = Some(parse_body(src, RangeSet::from(vec![range.clone()]), content_type)?);
         response.span = Span::new_bytes(src.clone(), offset..range.end);
     }
 
@@ -307,13 +307,18 @@ fn response_body_len(response: &Response) -> Result<usize, ParseError> {
 /// # Arguments
 ///
 /// * `src` - The source bytes.
-/// * `range` - The range of the message body in the source bytes.
+/// * `ranges` - The range of the message body in the source bytes.
 /// * `content_type` - The value of the Content-Type header.
-fn parse_body(src: &Bytes, range: Range<usize>, content_type: &[u8]) -> Result<Body, ParseError> {
-    let span = Span::new_bytes(src.clone(), range.clone());
+fn parse_body(src: &Bytes, ranges: RangeSet<usize>, content_type: &[u8]) -> Result<Body, ParseError> {
+    let span = Span {
+        data: src.clone(),
+        indices: ranges.clone(),
+        _pd: std::marker::PhantomData,
+    };
+
     let content = if content_type.get(..16) == Some(b"application/json".as_slice()) {
         let mut value = json::parse(span.data.clone())?;
-        value.offset(range.start);
+        value.offset(ranges.min().unwrap());
 
         BodyContent::Json(value)
     } else {

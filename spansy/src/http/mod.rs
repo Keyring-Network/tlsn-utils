@@ -47,7 +47,7 @@ impl Iterator for Requests {
             None
         } else {
             Some(parse_request_from_bytes(&self.src, self.pos).map(|req| {
-                self.pos += req.span.len();
+                self.pos = req.span.indices.end().unwrap();
                 req
             }))
         }

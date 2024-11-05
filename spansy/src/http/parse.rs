@@ -4,7 +4,7 @@ use utils::range::RangeSet;
 
 // Parsing functions for Transfer-Encoding header types
 /// Parse Transfer-Encoding: chunked body
-pub fn parse_chunked_body(src: &Bytes, offset: usize) -> Result<(Bytes, RangeSet<usize>), ParseError> {
+pub fn parse_chunked_body(src: &Bytes, offset: usize) -> Result<(Bytes, RangeSet<usize>, usize), ParseError> {
     let mut body = BytesMut::new();
     let mut pos = offset;
     let mut ranges = Vec::new();
@@ -37,6 +37,8 @@ pub fn parse_chunked_body(src: &Bytes, offset: usize) -> Result<(Bytes, RangeSet
         
         pos = chunk_end + 2;
     }
+
+    pos += 2;
     
-    Ok((body.freeze(), RangeSet::from(ranges)))
+    Ok((body.freeze(), RangeSet::from(ranges), pos))
 }
