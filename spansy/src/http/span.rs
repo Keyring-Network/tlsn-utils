@@ -6,10 +6,12 @@ use crate::{
     helpers::get_span_range,
     http::{
         Body, BodyContent, Code, Header, HeaderName, HeaderValue, Method, Reason, Request,
-        RequestLine, Response, Status, Target, parse_chunked_body, parse_deflate_body, parse_gzip_body, parse_identity_body
+        RequestLine, Response, Status, Target, parse_chunked_body
     },
     json, ParseError, Span,
 };
+
+use utils::range::RangeSet;
 
 const MAX_HEADERS: usize = 128;
 
@@ -171,11 +173,9 @@ pub(crate) fn parse_response_from_bytes(
     if body_len == usize::MAX {
         // Handle different transfer encodings
         let transfer_encoding = response.headers_with_name("Transfer-Encoding").next().unwrap().value.as_bytes();
-        let (body_bytes, end_pos) = match transfer_encoding {
+        let (body_bytes, ranges) = match transfer_encoding {
             b"chunked" => parse_chunked_body(src, head_end)?,
-            b"gzip" => (parse_gzip_body(&src.slice(head_end..))?, src.len()),
-            b"deflate" => (parse_deflate_body(&src.slice(head_end..))?, src.len()),
-            b"identity" => (parse_identity_body(&src.slice(head_end..))?, src.len()),
+            b"identity" => (src.slice(head_end..), RangeSet::from(vec![head_end..src.len()])),
             _ => return Err(ParseError("Unsupported Transfer-Encoding".to_string())),
         };
 
@@ -186,7 +186,11 @@ pub(crate) fn parse_response_from_bytes(
             .unwrap_or_default();
 
         response.body = Some(parse_body(&body_bytes, 0..body_bytes.len(), content_type)?);
-        response.span = Span::new_bytes(src.clone(), offset..end_pos);
+        response.span = Span {
+            data: src.clone(),
+            indices: ranges,
+            _pd: std::marker::PhantomData,
+        };
     } else if body_len > 0 {
         let range = head_end..head_end + body_len;
 
@@ -380,6 +384,17 @@ mod tests {
                         Content-Length: 14\r\n\r\n\
                         {\"foo\": \"bar\"}";
 
+    // Split JSON over two chunks
+    const TEST_RESPONSE_CHUNKED_JSON: &[u8] = b"\
+                        HTTP/1.1 200 OK\r\n\
+                        Content-Type: application/json\r\n\
+                        Transfer-Encoding: chunked\r\n\r\n\
+                        9\r\n\
+                        {\"foo\": \"\r\n\
+                        5\r\n\
+                        bar\"}\r\n\
+                        0\r\n\r\n";
+
     #[test]
     fn test_parse_request() {
         let req = parse_request(TEST_REQUEST).unwrap();
@@ -506,6 +521,17 @@ mod tests {
     #[test]
     fn test_parse_response_json() {
         let res = parse_response(TEST_RESPONSE_JSON).unwrap();
+
+        let BodyContent::Json(value) = res.body.unwrap().content else {
+            panic!("body is not json");
+        };
+
+        assert_eq!(value.span(), "{\"foo\": \"bar\"}");
+    }
+
+    #[test]
+    fn test_parse_response_chunked_json() {
+        let res = parse_response(TEST_RESPONSE_CHUNKED_JSON).unwrap();
 
         let BodyContent::Json(value) = res.body.unwrap().content else {
             panic!("body is not json");

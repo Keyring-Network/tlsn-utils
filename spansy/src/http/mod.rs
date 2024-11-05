@@ -11,7 +11,7 @@ pub use types::{
     Body, BodyContent, Code, Header, HeaderName, HeaderValue, Method, Reason, Request, RequestLine,
     Response, Status, Target,
 };
-pub use parse::{parse_chunked_body, parse_deflate_body, parse_gzip_body, parse_identity_body};
+pub use parse::parse_chunked_body;
 
 use crate::ParseError;
 
@@ -85,7 +85,7 @@ impl Iterator for Responses {
             None
         } else {
             Some(parse_response_from_bytes(&self.src, self.pos).map(|resp| {
-                self.pos += resp.span.len();
+                self.pos = resp.span.indices.end().unwrap();
                 resp
             }))
         }
