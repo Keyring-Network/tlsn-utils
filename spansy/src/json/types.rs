@@ -91,14 +91,35 @@ impl JsonValue {
 
     /// Get a reference to the key-value pair using the given path.
     pub fn get_keyvalue(&self, path: &str) -> Option<KeyValue> {
+        let  path_without_last_key = path.rsplitn(2, '.').nth(1);
+
+        if path_without_last_key.is_none() {
+            if let JsonValue::Object(obj) = self {
+                return obj.get_keyvalue(path);
+            } else {
+                return None;
+            }
+        }
+
+        let  path_without_last_key = path_without_last_key.unwrap();
+        let last_key = path.rsplitn(2, '.').nth(0).unwrap();
+
         match self {
-            JsonValue::Null(_) => None,
-            JsonValue::Bool(_) => None,
-            JsonValue::Number(_) => None,
-            JsonValue::String(_) => None,
-            JsonValue::Redacted(_) => None,
-            JsonValue::Array(v) => v.get_keyvalue(path),
-            JsonValue::Object(v) => v.get_keyvalue(path),
+            JsonValue::Array(v) => {
+                if let JsonValue::Object(parent) = v.get(path_without_last_key)? {
+                    parent.get_keyvalue(last_key)
+                } else {
+                    None
+                }
+            },
+            JsonValue::Object(v) => {
+                if let JsonValue::Object(parent) = v.get(path_without_last_key)? {
+                    parent.get_keyvalue(last_key)
+                } else {
+                    None
+                }
+            },
+            _ => None,
         }
     }
 }
@@ -290,28 +311,6 @@ impl Array {
         }
     }
 
-    /// Get a reference to the key value pair using the given path.
-    pub fn get_keyvalue(&self, path: &str) -> Option<KeyValue> {
-        let mut path_iter = path.split('.');
-
-        let key = path_iter.next()?;
-        let idx = key.parse::<usize>().ok()?;
-
-        let value: &JsonValue = self.elems.get(idx)?;
-
-        if path_iter.next().is_some() {
-            value.get_keyvalue(&path[key.len() + 1..])
-        } else {
-            let key_value = KeyValue {
-                span: value.span().clone(),
-                key: JsonKey(value.span().clone()),
-                value: value.clone(),
-            };
-
-            Some(key_value)
-        }   
-    }
-
     /// Returns the indices of the array, excluding the values and separators.
     pub fn without_values(&self) -> RangeSet<usize> {
         let start = self
@@ -379,23 +378,9 @@ impl Object {
         }
     }
 
-    /// Get a reference to the key value pair using the given path.
-    pub fn get_keyvalue(&self, path: &str) -> Option<KeyValue> {
-        let mut path_iter = path.split('.');
-
-        let key = path_iter.next()?;
-
-        let keyvalue = self.elems.iter().find(|kv| kv.key == key)?;
-
-        if path_iter.next().is_some() {
-            if let JsonValue::Object(obj) = &keyvalue.value {
-                obj.get_keyvalue(&path[key.len() + 1..])
-            } else {
-                keyvalue.value.get_keyvalue(&path[key.len() + 1..])
-            }
-        } else {
-            Some(keyvalue.clone())
-        }
+    /// Get a reference to the key value pair using the given key.
+    pub fn get_keyvalue(&self, key: &str) -> Option<KeyValue> {
+        self.elems.iter().find(|kv| kv.key == key).cloned()
     }
 
     /// Returns the indices of the object, excluding the key value pairs.
