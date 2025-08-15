@@ -88,6 +88,19 @@ impl JsonValue {
             JsonValue::Object(v) => v.get(path),
         }
     }
+
+    /// Get a reference to the key-value pair using the given path.
+    pub fn get_keyvalue(&self, path: &str) -> Option<KeyValue> {
+        match self {
+            JsonValue::Null(_) => None,
+            JsonValue::Bool(_) => None,
+            JsonValue::Number(_) => None,
+            JsonValue::String(_) => None,
+            JsonValue::Redacted(_) => None,
+            JsonValue::Array(v) => v.get_keyvalue(path),
+            JsonValue::Object(v) => v.get_keyvalue(path),
+        }
+    }
 }
 
 impl Spanned<str> for JsonValue {
@@ -277,6 +290,28 @@ impl Array {
         }
     }
 
+    /// Get a reference to the key value pair using the given path.
+    pub fn get_keyvalue(&self, path: &str) -> Option<KeyValue> {
+        let mut path_iter = path.split('.');
+
+        let key = path_iter.next()?;
+        let idx = key.parse::<usize>().ok()?;
+
+        let value: &JsonValue = self.elems.get(idx)?;
+
+        if path_iter.next().is_some() {
+            value.get_keyvalue(&path[key.len() + 1..])
+        } else {
+            let key_value = KeyValue {
+                span: value.span().clone(),
+                key: JsonKey(value.span().clone()),
+                value: value.clone(),
+            };
+
+            Some(key_value)
+        }   
+    }
+
     /// Returns the indices of the array, excluding the values and separators.
     pub fn without_values(&self) -> RangeSet<usize> {
         let start = self
@@ -331,11 +366,21 @@ pub struct Object {
 impl Object {
     /// Get a reference to the value using the given path.
     pub fn get(&self, path: &str) -> Option<&JsonValue> {
-        self.get_keyvalue(path).map(|kv| &kv.value)
+        let mut path_iter = path.split('.');
+
+        let key = path_iter.next()?;
+
+        let KeyValue { value, .. } = self.elems.iter().find(|kv| kv.key == key)?;
+
+        if path_iter.next().is_some() {
+            value.get(&path[key.len() + 1..])
+        } else {
+            Some(value)
+        }
     }
 
     /// Get a reference to the key value pair using the given path.
-    pub fn get_keyvalue(&self, path: &str) -> Option<&KeyValue> {
+    pub fn get_keyvalue(&self, path: &str) -> Option<KeyValue> {
         let mut path_iter = path.split('.');
 
         let key = path_iter.next()?;
@@ -346,10 +391,10 @@ impl Object {
             if let JsonValue::Object(obj) = &keyvalue.value {
                 obj.get_keyvalue(&path[key.len() + 1..])
             } else {
-                None
+                keyvalue.value.get_keyvalue(&path[key.len() + 1..])
             }
         } else {
-            Some(keyvalue)
+            Some(keyvalue.clone())
         }
     }
 
