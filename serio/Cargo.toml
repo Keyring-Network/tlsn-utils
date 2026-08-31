@@ -1,7 +1,7 @@
 [package]
 name = "serio"
-version = "0.2.0"
-edition = "2021"
+version = "0.2.1"
+edition = "2024"
 authors = ["TLSNotary Contributors"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tlsnotary/tlsn-utils"
@@ -14,7 +14,7 @@ keywords = ["io", "async", "futures", "serde"]
 [features]
 default = ["compat", "channel", "codec", "bincode"]
 compat = ["dep:futures-sink"]
-channel = ["dep:futures-channel"]
+channel = ["dep:futures-sink", "dep:futures-channel", "futures-channel/sink"]
 codec = ["dep:tokio-util", "dep:futures-io"]
 bincode = ["dep:bincode"]
 

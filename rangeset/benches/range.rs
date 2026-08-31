@@ -1,6 +1,6 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-use rangeset::{RangeSet, Subset};
+use rangeset::{ops::Set, set::RangeSet};
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     let mut rangeset_vec = Vec::new();
@@ -21,16 +21,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-// To benchmark the worst case where [range.start] is close to [other.end()], i.e. N
-// iterations are needed if there is no boundary short citcuit (N == other.len_ranges()).
+// To benchmark the worst case where [range.start] is close to [other.end()],
+// i.e. N iterations are needed if there is no boundary short citcuit (N ==
+// other.len_ranges()).
 fn boundary_range_subset_of_rangeset(other: &RangeSet<u32>) {
     let range = 9997..10005;
     let _ = range.is_subset(other);
 }
 
-// To benchmark the worst case where [rangeset.last().start] is close to [other.end()],
-// i.e. N iterations of [is_subset()] check are needed if there is no boundary short
-// citcuit (N ~= rangeset.len_ranges()).
+// To benchmark the worst case where [rangeset.last().start] is close to
+// [other.end()], i.e. N iterations of [is_subset()] check are needed if there
+// is no boundary short citcuit (N ~= rangeset.len_ranges()).
 #[allow(clippy::single_range_in_vec_init)]
 fn rangeset_subset_of_boundary_rangeset(rangeset: &RangeSet<u32>) {
     let other = RangeSet::from(vec![0..9998]);
