@@ -1,8 +1,8 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use libfuzzer_sys::arbitrary::{Arbitrary, Result, Unstructured};
 
-use rangeset::*;
+use rangeset::prelude::*;
 
 #[derive(Debug)]
 pub struct SmallSet {
@@ -11,7 +11,7 @@ pub struct SmallSet {
 
 impl From<SmallSet> for RangeSet<u8> {
     fn from(s: SmallSet) -> Self {
-        RangeSet::new(&s.ranges)
+        RangeSet::new_from_slice(&s.ranges)
     }
 }
 
@@ -23,7 +23,7 @@ impl<'a> Arbitrary<'a> for SmallSet {
         let mut set = RangeSet::default();
         for _ in 0..count {
             let new: Range<u8> = Range::arbitrary(u)?;
-            set = set.union(&new);
+            set = set.union(&new).into_set();
         }
 
         Ok(SmallSet {
@@ -37,7 +37,8 @@ impl<'a> Arbitrary<'a> for SmallSet {
     }
 }
 
-/// Asserts that the ranges of the given set are sorted, non-adjacent, non-intersecting, and non-empty.
+/// Asserts that the ranges of the given set are sorted, non-adjacent,
+/// non-intersecting, and non-empty.
 pub fn assert_invariants(set: RangeSet<u8>) {
     assert!(set.into_inner().windows(2).all(|w| w[0].start < w[1].start
         && w[0].end < w[1].start
