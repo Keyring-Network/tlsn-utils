@@ -7,6 +7,10 @@
 //! span of the corresponding characters in the source string. Thus, this parser
 //! should not be expected to perform any kind of validation of the JSON.
 //!
+//! Unquoted runs of `*` are parsed as [`Redacted`] placeholders. Quoted stars
+//! remain strings. Placeholders describe the supplied document, not the type,
+//! contents or authenticity of the undisclosed bytes they represent.
+//!
 //! # Example
 //!
 //! ```
@@ -31,6 +35,6 @@ mod visit;
 
 pub use span::parse;
 pub use types::{
-    Array, Bool, Document, JsonKey, JsonValue, KeyValue, Null, Number, Object, String,
+    Array, Bool, Document, JsonKey, JsonValue, KeyValue, Null, Number, Object, Redacted, String,
 };
 pub use visit::JsonVisit;
