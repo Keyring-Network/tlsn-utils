@@ -46,6 +46,7 @@ impl<S: Store> JsonValue<S> {
             Rule::object => Self::Object(types::Object::from_pair(view, data, pair)),
             Rule::array => Self::Array(types::Array::from_pair(view, data, pair)),
             Rule::string => Self::String(types::String::from_pair(view, data, pair)),
+            Rule::redacted => Self::Redacted(types::Redacted::from_pair(view, data, pair)),
             Rule::number => Self::Number(types::Number::from_pair(view, data, pair)),
             Rule::bool => Self::Bool(types::Bool::from_pair(view, data, pair)),
             Rule::null => Self::Null(types::Null::from_pair(view, data, pair)),
@@ -87,6 +88,16 @@ impl<S: Store> types::Bool<S> {
 impl<S: Store> types::Null<S> {
     fn from_pair(view: &View<S, str>, data: &str, pair: PestPair<'_, Rule>) -> Self {
         assert!(matches!(pair.as_rule(), Rule::null));
+        let range = get_range(data, pair.as_str());
+        Self {
+            view: view.select(range).expect("range should be valid"),
+        }
+    }
+}
+
+impl<S: Store> types::Redacted<S> {
+    fn from_pair(view: &View<S, str>, data: &str, pair: PestPair<'_, Rule>) -> Self {
+        assert!(matches!(pair.as_rule(), Rule::redacted));
         let range = get_range(data, pair.as_str());
         Self {
             view: view.select(range).expect("range should be valid"),

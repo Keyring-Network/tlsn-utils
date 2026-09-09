@@ -135,6 +135,8 @@ pub enum JsonValue<S: Store = Bytes> {
     Number(Number<S>),
     /// A string value.
     String(String<S>),
+    /// A placeholder for an undisclosed value.
+    Redacted(Redacted<S>),
     /// An array value.
     Array(Array<S>),
     /// An object value.
@@ -149,6 +151,7 @@ impl<S: Store> JsonValue<S> {
             JsonValue::Bool(v) => v.view(),
             JsonValue::Number(v) => v.view(),
             JsonValue::String(v) => v.view(),
+            JsonValue::Redacted(v) => v.view(),
             JsonValue::Array(v) => v.view(),
             JsonValue::Object(v) => v.view(),
         }
@@ -173,6 +176,7 @@ impl<S: Store> JsonValue<S> {
             JsonValue::Bool(_) => None,
             JsonValue::Number(_) => None,
             JsonValue::String(_) => None,
+            JsonValue::Redacted(_) => None,
             JsonValue::Array(v) => v.get(path),
             JsonValue::Object(v) => v.get(path),
         }
@@ -660,6 +664,14 @@ impl<S: Store> AsRef<View<S, str>> for Object<S> {
     }
 }
 
+/// An unquoted run of `*` representing an undisclosed value.
+///
+/// This placeholder does not identify the original value's type or contents.
+#[derive(Debug, Clone)]
+pub struct Redacted<S: Store = Bytes> {
+    pub(crate) view: View<S, str>,
+}
+
 /// Macro to implement common traits for simple JSON types.
 macro_rules! impl_span_type {
     ($ty:ident) => {
@@ -738,6 +750,7 @@ impl_span_type!(Null);
 impl_span_type!(Bool);
 impl_span_type!(Number);
 impl_span_type!(String);
+impl_span_type!(Redacted);
 
 macro_rules! impl_ref_range_iter {
     ($($ty:ident),*) => {$(
@@ -752,7 +765,7 @@ macro_rules! impl_ref_range_iter {
 }
 
 impl_ref_range_iter!(
-    Document, JsonValue, KeyValue, JsonKey, Array, Object, Null, Bool, Number, String
+    Document, JsonValue, KeyValue, JsonKey, Array, Object, Null, Bool, Number, String, Redacted
 );
 
 #[cfg(test)]
